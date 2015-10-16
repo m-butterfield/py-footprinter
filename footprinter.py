@@ -1,13 +1,30 @@
+#!/usr/bin/env python
 """
-Python port of my java footprinting program
-"""
+footprinter
 
+Create a Google Earth KML file containing polygons representing image
+footprints when provided with photogrammetric exterior orientation parameters
+(the x, y, z, and omega phi kappa coordinates of an aerial camera at the exact
+moment a photo was taken), which can be provided in any coordinate system.
+
+Usage:
+    footprinter <file_name> <ground-height> <epsg-code>
+
+Options:
+    -h --help           Show this screen.
+    -g --ground-height  Average ground height.
+    -c --epsg-code      EPSG code.
+
+"""
 import sys
 import math
+
+from docopt import docopt
+
+from jinja2 import Environment, FileSystemLoader
+
 from pyproj import Proj
 from pyproj import transform
-from optparse import OptionParser
-from jinja2 import Environment, FileSystemLoader
 
 
 class Photo(object):
@@ -119,13 +136,7 @@ def main(file_name, ground_height, epsg_code):
 
 
 if __name__ == '__main__':
-    usage = "usage: %prog [options]"
-    parser = OptionParser(usage)
-    parser.add_option("-f", "--file", type="string", dest="file_name",
-                      default='sample_input.txt', help="input file")
-    parser.add_option("-g", "--ground-height", type="int", dest="ground_height",
-                      default=250, help="average ground height")
-    parser.add_option("-c", "--epsg-code", type="int", dest="epsg_code",
-                      default=2180, help="epsg code")
-    (options, args) = parser.parse_args()
-    sys.exit(main(options.file_name, options.ground_height, options.epsg_code))
+    args = docopt(__doc__)
+    sys.exit(main(args['<file_name>'],
+                  int(args['<ground-height>']),
+                  int(args['<epsg-code>'])))
