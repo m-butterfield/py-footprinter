@@ -16,6 +16,7 @@ Options:
     -c --epsg-code      EPSG code.
 
 """
+import os
 import sys
 
 from docopt import docopt
@@ -25,17 +26,16 @@ from jinja2 import Environment, FileSystemLoader
 from lib import Photo
 
 
-def main(file_name, ground_height, epsg_code):
-    with open(file_name) as f:
-        input_lines = f.readlines()
+def main(args):
+    file_name = args['<file_name>']
+    ground_height = int(args['<ground-height>'])
+    epsg_code = int(args['<epsg-code>'])
+    input_lines = _get_input_lines(file_name)
+    footprints = _get_footprints(input_lines, ground_height, epsg_code)
+    _write_output_file(footprints)
 
-    footprints = []
 
-    for line in input_lines:
-        p = Photo(line, ground_height, epsg_code)
-        p.compute_corner_coordinates()
-        footprints.append(p)
-
+def _write_output_file(footprints):
     env = Environment(loader=FileSystemLoader('.'))
     template = env.get_template('output_tmpl.kml')
     t = template.render(footprints=footprints)
@@ -43,8 +43,22 @@ def main(file_name, ground_height, epsg_code):
         f.write(t)
 
 
+def _get_footprints(input_lines, ground_height, epsg_code):
+    footprints = []
+    for line in input_lines:
+        p = Photo(line, ground_height, epsg_code)
+        p.compute_corner_coordinates()
+        footprints.append(p)
+    return footprints
+
+
+def _get_input_lines(file_name):
+    if not os.path.exists(file_name):
+        print "File not found: {}".format(file_name)
+        sys.exit(1)
+    with open(file_name) as fp:
+        return fp.readlines()
+
+
 if __name__ == '__main__':
-    args = docopt(__doc__)
-    sys.exit(main(args['<file_name>'],
-                  int(args['<ground-height>']),
-                  int(args['<epsg-code>'])))
+    main(docopt(__doc__))
