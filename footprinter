@@ -14,7 +14,7 @@ Options:
     -h --help                   Show this screen.
     -g --ground-height          Average ground height.
     -c --epsg-code              EPSG code.
-    --output-file=<output_file> Name of the file to output.
+    --output-file=<output_file> Name of the output file. (default: output.kml)
 
 """
 import os
