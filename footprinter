@@ -8,12 +8,13 @@ footprints when provided with photogrammetric exterior orientation parameters
 moment a photo was taken), which can be provided in any coordinate system.
 
 Usage:
-    footprinter <file_name> <ground-height> <epsg-code>
+    footprinter <input_file> <ground-height> <epsg-code> [--output-file=<output_file>]
 
 Options:
-    -h --help           Show this screen.
-    -g --ground-height  Average ground height.
-    -c --epsg-code      EPSG code.
+    -h --help                   Show this screen.
+    -g --ground-height          Average ground height.
+    -c --epsg-code              EPSG code.
+    --output-file=<output_file> Name of the file to output.
 
 """
 import os
@@ -27,19 +28,20 @@ from lib import Photo
 
 
 def main(args):
-    file_name = args['<file_name>']
+    input_file = args['<input_file>']
     ground_height = int(args['<ground-height>'])
     epsg_code = int(args['<epsg-code>'])
-    input_lines = _get_input_lines(file_name)
+    output_file = args['--output-file']
+    input_lines = _get_input_lines(input_file)
     footprints = _get_footprints(input_lines, ground_height, epsg_code)
-    _write_output_file(footprints)
+    _write_output_file(footprints, output_file)
 
 
-def _write_output_file(footprints):
+def _write_output_file(footprints, output_file):
     env = Environment(loader=FileSystemLoader('.'))
     template = env.get_template('output_tmpl.kml')
     t = template.render(footprints=footprints)
-    with open('output.kml', 'wb') as f:
+    with open(output_file or 'output.kml', 'wb') as f:
         f.write(t)
 
 
