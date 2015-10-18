@@ -4,8 +4,12 @@ Lib for footprinter project
 """
 import math
 
+from jinja2 import Environment, FileSystemLoader
+
 from pyproj import Proj, transform
 
+
+DEFAULT_OUTPUT_FILE = 'output.kml'
 
 UCX_IMAGE_Y_FRONT = -33.912
 UCX_IMAGE_Y_BACK = 33.912
@@ -138,3 +142,50 @@ class Photo(object):
             x2, y2 = transform(user_projection, lat_long_projection, x1, y1)
             self.corner_coordinates[i][0] = x2
             self.corner_coordinates[i][1] = y2
+
+
+def create_footprints(input_file,
+                      ground_height,
+                      epsg_code,
+                      output_file=DEFAULT_OUTPUT_FILE):
+    """
+    Create a Google Earth KML file containing polygons representing image
+    footprints when provided with photogrammetric exterior orientation
+    parameters (the x, y, z, and omega phi kappa coordinates of an aerial
+    camera at the exact moment a photo was taken), which can be provided in any
+    coordinate system.
+
+    Args:
+        input_file (str): Name of the input file
+        ground_height (int): Average ground height of the area
+        epsg_code (int): EPSG code of the input data
+
+    Kwargs:
+        output_file (str): Name of the output file
+
+    """
+    input_lines = _get_input_lines(input_file)
+    footprints = _get_footprints(input_lines, ground_height, epsg_code)
+    _write_output_file(footprints, output_file)
+
+
+def _write_output_file(footprints, output_file):
+    env = Environment(loader=FileSystemLoader('.'))
+    template = env.get_template('output_tmpl.kml')
+    t = template.render(footprints=footprints)
+    with open(output_file or 'output.kml', 'wb') as f:
+        f.write(t)
+
+
+def _get_footprints(input_lines, ground_height, epsg_code):
+    footprints = []
+    for line in input_lines:
+        p = Photo(line, ground_height, epsg_code)
+        p.compute_corner_coordinates()
+        footprints.append(p)
+    return footprints
+
+
+def _get_input_lines(file_name):
+    with open(file_name) as fp:
+        return fp.readlines()

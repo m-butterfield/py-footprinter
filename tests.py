@@ -5,9 +5,7 @@ Footprinter tests
 import os
 import unittest
 
-from jinja2 import Environment, FileSystemLoader
-
-from lib import Photo
+from lib import create_footprints
 
 
 INPUT_FILE_NAME = 'sample_input.txt'
@@ -32,16 +30,8 @@ class FootprinterTest(unittest.TestCase):
             pass
 
     def test_footprinter(self):
-        footprints = []
-        for line in self.input_lines:
-            p = Photo(line, GROUND_HEIGHT, EPSG_CODE)
-            p.compute_corner_coordinates()
-            footprints.append(p)
-        env = Environment(loader=FileSystemLoader('.'))
-        template = env.get_template('output_tmpl.kml')
-        t = template.render(footprints=footprints)
-        with open(OUTPUT_FILE_NAME, 'wb') as fp:
-            fp.write(t)
+        create_footprints(
+            INPUT_FILE_NAME, GROUND_HEIGHT, EPSG_CODE, OUTPUT_FILE_NAME)
         with open(OUTPUT_FILE_NAME) as fp:
             output = fp.read()
         self.assertEqual(self.expected_output, output)

@@ -22,45 +22,23 @@ import sys
 
 from docopt import docopt
 
-from jinja2 import Environment, FileSystemLoader
-
-from lib import Photo
+from lib import create_footprints
 
 
 def main(args):
     input_file = args['<input_file>']
+    if not os.path.exists(input_file):
+        print "File not found: {}".format(input_file)
+        sys.exit(1)
     ground_height = int(args['<ground-height>'])
     epsg_code = int(args['<epsg-code>'])
     output_file = args['--output-file']
-    input_lines = _get_input_lines(input_file)
-    footprints = _get_footprints(input_lines, ground_height, epsg_code)
-    _write_output_file(footprints, output_file)
-
-
-def _write_output_file(footprints, output_file):
-    env = Environment(loader=FileSystemLoader('.'))
-    template = env.get_template('output_tmpl.kml')
-    t = template.render(footprints=footprints)
-    with open(output_file or 'output.kml', 'wb') as f:
-        f.write(t)
-
-
-def _get_footprints(input_lines, ground_height, epsg_code):
-    footprints = []
-    for line in input_lines:
-        p = Photo(line, ground_height, epsg_code)
-        p.compute_corner_coordinates()
-        footprints.append(p)
-    return footprints
-
-
-def _get_input_lines(file_name):
-    if not os.path.exists(file_name):
-        print "File not found: {}".format(file_name)
-        sys.exit(1)
-    with open(file_name) as fp:
-        return fp.readlines()
+    create_footprints(input_file, ground_height, epsg_code, output_file)
 
 
 if __name__ == '__main__':
-    main(docopt(__doc__))
+    try:
+        main(docopt(__doc__))
+    except Exception as ex:
+        print "Error: {}".format(ex)
+        sys.exit(1)
