@@ -8,43 +8,37 @@ footprints when provided with photogrammetric exterior orientation parameters
 moment a photo was taken), which can be provided in any coordinate system.
 
 Usage:
-    footprinter <file_name> <ground-height> <epsg-code>
+    footprinter <input_file> <ground-height> <epsg-code> [--output-file=<output_file>]
 
 Options:
-    -h --help           Show this screen.
-    -g --ground-height  Average ground height.
-    -c --epsg-code      EPSG code.
+    -h --help                   Show this screen.
+    -g --ground-height          Average ground height.
+    -c --epsg-code              EPSG code.
+    --output-file=<output_file> Name of the output file. (default: output.kml)
 
 """
+import os
 import sys
 
 from docopt import docopt
 
-from jinja2 import Environment, FileSystemLoader
-
-from lib import Photo
+from lib import create_footprints
 
 
-def main(file_name, ground_height, epsg_code):
-    with open(file_name) as f:
-        input_lines = f.readlines()
-
-    footprints = []
-
-    for line in input_lines:
-        p = Photo(line, ground_height, epsg_code)
-        p.compute_corner_coordinates()
-        footprints.append(p)
-
-    env = Environment(loader=FileSystemLoader('.'))
-    template = env.get_template('output_tmpl.kml')
-    t = template.render(footprints=footprints)
-    with open('output.kml', 'wb') as f:
-        f.write(t)
+def main(args):
+    input_file = args['<input_file>']
+    if not os.path.exists(input_file):
+        print "File not found: {}".format(input_file)
+        sys.exit(1)
+    ground_height = int(args['<ground-height>'])
+    epsg_code = int(args['<epsg-code>'])
+    output_file = args['--output-file']
+    create_footprints(input_file, ground_height, epsg_code, output_file)
 
 
 if __name__ == '__main__':
-    args = docopt(__doc__)
-    sys.exit(main(args['<file_name>'],
-                  int(args['<ground-height>']),
-                  int(args['<epsg-code>'])))
+    try:
+        main(docopt(__doc__))
+    except Exception as ex:
+        print "Error: {}".format(ex)
+        sys.exit(1)
