@@ -5,7 +5,7 @@ Footprinter tests
 import os
 import unittest
 
-from lib import create_footprints
+from lib import create_footprints, InvalidEPSGCode
 
 
 INPUT_FILE_NAME = 'sample_input.txt'
@@ -35,3 +35,11 @@ class FootprinterTest(unittest.TestCase):
         with open(OUTPUT_FILE_NAME) as fp:
             output = fp.read()
         self.assertEqual(self.expected_output, output)
+
+    def test_invalid_epsg_code(self):
+        self.assertRaises(InvalidEPSGCode,
+                          create_footprints,
+                          INPUT_FILE_NAME,
+                          GROUND_HEIGHT,
+                          'asdflkj',
+                          OUTPUT_FILE_NAME)

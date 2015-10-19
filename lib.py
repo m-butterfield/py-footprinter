@@ -2,7 +2,8 @@
 Lib for footprinter project
 
 """
-import math
+from collections import namedtuple
+from math import cos, radians, sin
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -11,6 +12,9 @@ from pyproj import Proj, transform
 
 DEFAULT_OUTPUT_FILE = 'output.kml'
 
+LAT_LONG_EPSG = 'epsg:4326'
+LAT_LONG_PROJ = Proj(init=LAT_LONG_EPSG)
+
 UCX_IMAGE_Y_FRONT = -33.912
 UCX_IMAGE_Y_BACK = 33.912
 UCX_IMAGE_X_RIGHT = -51.948
@@ -18,130 +22,25 @@ UCX_IMAGE_X_LEFT = 51.948
 UCX_FOCAL_LENGTH = 100.5
 
 
-class Photo(object):
+class InvalidEPSGCode(Exception):
+    """
+    Exception to raise when a Proj object cannot be created from an EPSG code
 
-    def __init__(self, next_line, ground_height, epsg_code):
-        self.ground_height = ground_height
-        self.epsg_code = epsg_code
-        self.r11 = None
-        self.r12 = None
-        self.r13 = None
-        self.r21 = None
-        self.r22 = None
-        self.r23 = None
-        self.r31 = None
-        self.r32 = None
-        self.r33 = None
-        self.data_fields = next_line.split(',')
-        self.photo_id = int(self.data_fields[0])
-        self.x_value = float(self.data_fields[1])
-        self.y_value = float(self.data_fields[2])
-        self.z_value = float(self.data_fields[3])
-        self.o_value = float(self.data_fields[4])
-        self.p_value = float(self.data_fields[5])
-        self.k_value = float(self.data_fields[6])
-        self.rad_o_value = math.radians(self.o_value)
-        self.rad_p_value = math.radians(self.p_value)
-        self.rad_k_value = math.radians(self.k_value)
-        self.corner_coordinates = [[0, 0], [0, 0], [0, 0], [0, 0]]
-        self.compute_rotation_matrix()
+    """
 
-    def compute_rotation_matrix(self):
-        self.r11 = math.cos(self.rad_k_value) * math.cos(self.rad_p_value)
-        self.r12 = (math.cos(self.rad_k_value) * math.sin(self.rad_p_value) *
-                    math.sin(self.rad_o_value) - math.sin(self.rad_k_value) *
-                    math.cos(self.rad_o_value))
-        self.r13 = (math.cos(self.rad_k_value) * math.sin(self.rad_p_value) *
-                    math.cos(self.rad_o_value) + math.sin(self.rad_k_value) *
-                    math.sin(self.rad_o_value))
-        self.r21 = math.sin(self.rad_k_value) * math.cos(self.rad_p_value)
-        self.r22 = (math.sin(self.rad_k_value) * math.sin(self.rad_p_value) *
-                    math.sin(self.rad_o_value) + math.cos(self.rad_k_value) *
-                    math.cos(self.rad_o_value))
-        self.r23 = (math.sin(self.rad_k_value) * math.sin(self.rad_p_value) *
-                    math.cos(self.rad_o_value) - math.cos(self.rad_k_value) *
-                    math.sin(self.rad_o_value))
-        self.r31 = -math.sin(self.rad_p_value)
-        self.r32 = math.cos(self.rad_p_value) * math.sin(self.rad_o_value)
-        self.r33 = math.cos(self.rad_p_value) * math.cos(self.rad_o_value)
 
-    def compute_corner_coordinates(self):
-        # FrontRight X
-        self.corner_coordinates[0][0] = (
-            self.x_value + (self.ground_height - self.z_value) *
-            ((self.r11 * UCX_IMAGE_X_RIGHT + self.r12 * UCX_IMAGE_Y_FRONT -
-              self.r13 * UCX_FOCAL_LENGTH) /
-             (self.r31 * UCX_IMAGE_X_RIGHT + self.r32 * UCX_IMAGE_Y_FRONT -
-              self.r33 * UCX_FOCAL_LENGTH)))
+class _Photo(namedtuple('Photo', [
+    'id',
+    'front_right',
+    'front_left',
+    'back_right',
+    'back_left',
+])):
+    pass
 
-        # FrontRight Y
-        self.corner_coordinates[0][1] = (
-            self.y_value + (self.ground_height - self.z_value) *
-            ((self.r21 * UCX_IMAGE_X_RIGHT + self.r22 * UCX_IMAGE_Y_FRONT -
-              self.r23 * UCX_FOCAL_LENGTH) /
-             (self.r31 * UCX_IMAGE_X_RIGHT + self.r32 * UCX_IMAGE_Y_FRONT -
-              self.r33 * UCX_FOCAL_LENGTH)))
 
-        # FrontLeft X
-        self.corner_coordinates[1][0] = (
-            self.x_value + (self.ground_height - self.z_value) *
-            ((self.r11 * UCX_IMAGE_X_LEFT + self.r12 * UCX_IMAGE_Y_FRONT -
-              self.r13 * UCX_FOCAL_LENGTH) /
-             (self.r31 * UCX_IMAGE_X_LEFT + self.r32 * UCX_IMAGE_Y_FRONT -
-              self.r33 * UCX_FOCAL_LENGTH)))
-
-        # FrontLeft Y
-        self.corner_coordinates[1][1] = (
-            self.y_value + (self.ground_height - self.z_value) *
-            ((self.r21 * UCX_IMAGE_X_LEFT + self.r22 * UCX_IMAGE_Y_FRONT -
-              self.r23 * UCX_FOCAL_LENGTH) /
-             (self.r31 * UCX_IMAGE_X_LEFT + self.r32 * UCX_IMAGE_Y_FRONT -
-              self.r33 * UCX_FOCAL_LENGTH)))
-
-        # BackRight X
-        self.corner_coordinates[2][0] = (
-            self.x_value + (self.ground_height - self.z_value) *
-            ((self.r11 * UCX_IMAGE_X_RIGHT + self.r12 * UCX_IMAGE_Y_BACK -
-              self.r13 * UCX_FOCAL_LENGTH) /
-             (self.r31 * UCX_IMAGE_X_RIGHT + self.r32 * UCX_IMAGE_Y_BACK -
-              self.r33 * UCX_FOCAL_LENGTH)))
-
-        # BackRight Y
-        self.corner_coordinates[2][1] = (
-            self.y_value + (self.ground_height - self.z_value) *
-            ((self.r21 * UCX_IMAGE_X_RIGHT + self.r22 * UCX_IMAGE_Y_BACK -
-              self.r23 * UCX_FOCAL_LENGTH) /
-             (self.r31 * UCX_IMAGE_X_RIGHT + self.r32 * UCX_IMAGE_Y_BACK -
-              self.r33 * UCX_FOCAL_LENGTH)))
-
-        # BackLeft X
-        self.corner_coordinates[3][0] = (
-            self.x_value + (self.ground_height - self.z_value) *
-            ((self.r11 * UCX_IMAGE_X_LEFT + self.r12 * UCX_IMAGE_Y_BACK -
-              self.r13 * UCX_FOCAL_LENGTH) /
-             (self.r31 * UCX_IMAGE_X_LEFT + self.r32 * UCX_IMAGE_Y_BACK -
-              self.r33 * UCX_FOCAL_LENGTH)))
-
-        # BackLeft Y
-        self.corner_coordinates[3][1] = (
-            self.y_value + (self.ground_height - self.z_value) *
-            ((self.r21 * UCX_IMAGE_X_LEFT + self.r22 * UCX_IMAGE_Y_BACK -
-              self.r23 * UCX_FOCAL_LENGTH) /
-             (self.r31 * UCX_IMAGE_X_LEFT + self.r32 * UCX_IMAGE_Y_BACK -
-              self.r33 * UCX_FOCAL_LENGTH)))
-
-        self.transform_to_lat_long()
-
-    def transform_to_lat_long(self):
-        user_projection = Proj(init='epsg:' + str(self.epsg_code))
-        lat_long_projection = Proj(init='epsg:4326')
-
-        for i in range(4):
-            x1 = self.corner_coordinates[i][0]
-            y1 = self.corner_coordinates[i][1]
-            x2, y2 = transform(user_projection, lat_long_projection, x1, y1)
-            self.corner_coordinates[i][0] = x2
-            self.corner_coordinates[i][1] = y2
+class _Point(namedtuple('Point', ['x', 'y'])):
+    pass
 
 
 def create_footprints(input_file,
@@ -164,28 +63,114 @@ def create_footprints(input_file,
         output_file (str): Name of the output file
 
     """
-    input_lines = _get_input_lines(input_file)
-    footprints = _get_footprints(input_lines, ground_height, epsg_code)
-    _write_output_file(footprints, output_file)
+    try:
+        user_proj = Proj(init='epsg:{}'.format(epsg_code))
+    except Exception:
+        raise InvalidEPSGCode("Invalid EPSG code: {}".format(epsg_code))
+
+    photos = []
+    with open(input_file) as fp:
+        for line in fp:
+            photo_id, x, y, z, o, p, k = line.split(',')
+            photos.append(_compute_footprint(photo_id,
+                                             user_proj,
+                                             ground_height,
+                                             float(x),
+                                             float(y),
+                                             float(z),
+                                             float(o),
+                                             float(p),
+                                             float(k)))
+
+    _write_output_file(photos, ground_height, output_file)
 
 
-def _write_output_file(footprints, output_file):
+def _compute_footprint(photo_id, user_proj, ground_height, x, y, z, o, p, k):
+    r11, r12, r13, r21, r22, r23, r31, r32, r33 = _compute_matrix(o, p, k)
+    return _compute_corner_coordinates(
+        photo_id, user_proj, ground_height,
+        r11, r12, r13, r21, r22, r23, r31, r32, r33, x, y, z)
+
+
+def _compute_matrix(o, p, k):
+    o_rad = radians(o)
+    p_rad = radians(p)
+    k_rad = radians(k)
+    r11 = cos(k_rad) * cos(p_rad)
+    r12 = cos(k_rad) * sin(p_rad) * sin(o_rad) - sin(k_rad) * cos(o_rad)
+    r13 = cos(k_rad) * sin(p_rad) * cos(o_rad) + sin(k_rad) * sin(o_rad)
+    r21 = sin(k_rad) * cos(p_rad)
+    r22 = sin(k_rad) * sin(p_rad) * sin(o_rad) + cos(k_rad) * cos(o_rad)
+    r23 = sin(k_rad) * sin(p_rad) * cos(o_rad) - cos(k_rad) * sin(o_rad)
+    r31 = -sin(p_rad)
+    r32 = cos(p_rad) * sin(o_rad)
+    r33 = cos(p_rad) * cos(o_rad)
+    return r11, r12, r13, r21, r22, r23, r31, r32, r33
+
+
+def _compute_corner_coordinates(
+        photo_id, user_proj, ground_height,
+        r11, r12, r13, r21, r22, r23, r31, r32, r33, x, y, z):
+    fr_x = (
+        x + (ground_height - z) *
+        ((r11 * UCX_IMAGE_X_RIGHT + r12 * UCX_IMAGE_Y_FRONT -
+          r13 * UCX_FOCAL_LENGTH) /
+         (r31 * UCX_IMAGE_X_RIGHT + r32 * UCX_IMAGE_Y_FRONT -
+          r33 * UCX_FOCAL_LENGTH)))
+    fr_y = (
+        y + (ground_height - z) *
+        ((r21 * UCX_IMAGE_X_RIGHT + r22 * UCX_IMAGE_Y_FRONT -
+          r23 * UCX_FOCAL_LENGTH) /
+         (r31 * UCX_IMAGE_X_RIGHT + r32 * UCX_IMAGE_Y_FRONT -
+          r33 * UCX_FOCAL_LENGTH)))
+    fl_x = (
+        x + (ground_height - z) *
+        ((r11 * UCX_IMAGE_X_LEFT + r12 * UCX_IMAGE_Y_FRONT -
+          r13 * UCX_FOCAL_LENGTH) /
+         (r31 * UCX_IMAGE_X_LEFT + r32 * UCX_IMAGE_Y_FRONT -
+          r33 * UCX_FOCAL_LENGTH)))
+    fl_y = (
+        y + (ground_height - z) *
+        ((r21 * UCX_IMAGE_X_LEFT + r22 * UCX_IMAGE_Y_FRONT -
+          r23 * UCX_FOCAL_LENGTH) /
+         (r31 * UCX_IMAGE_X_LEFT + r32 * UCX_IMAGE_Y_FRONT -
+          r33 * UCX_FOCAL_LENGTH)))
+    br_x = (
+        x + (ground_height - z) *
+        ((r11 * UCX_IMAGE_X_RIGHT + r12 * UCX_IMAGE_Y_BACK -
+          r13 * UCX_FOCAL_LENGTH) /
+         (r31 * UCX_IMAGE_X_RIGHT + r32 * UCX_IMAGE_Y_BACK -
+          r33 * UCX_FOCAL_LENGTH)))
+    br_y = (
+        y + (ground_height - z) *
+        ((r21 * UCX_IMAGE_X_RIGHT + r22 * UCX_IMAGE_Y_BACK -
+          r23 * UCX_FOCAL_LENGTH) /
+         (r31 * UCX_IMAGE_X_RIGHT + r32 * UCX_IMAGE_Y_BACK -
+          r33 * UCX_FOCAL_LENGTH)))
+    bl_x = (
+        x + (ground_height - z) *
+        ((r11 * UCX_IMAGE_X_LEFT + r12 * UCX_IMAGE_Y_BACK -
+          r13 * UCX_FOCAL_LENGTH) /
+         (r31 * UCX_IMAGE_X_LEFT + r32 * UCX_IMAGE_Y_BACK -
+          r33 * UCX_FOCAL_LENGTH)))
+    bl_y = (
+        y + (ground_height - z) *
+        ((r21 * UCX_IMAGE_X_LEFT + r22 * UCX_IMAGE_Y_BACK -
+          r23 * UCX_FOCAL_LENGTH) /
+         (r31 * UCX_IMAGE_X_LEFT + r32 * UCX_IMAGE_Y_BACK -
+          r33 * UCX_FOCAL_LENGTH)))
+
+    return _Photo(
+        id=photo_id,
+        front_right=_Point(*transform(user_proj, LAT_LONG_PROJ, fr_x, fr_y)),
+        front_left=_Point(*transform(user_proj, LAT_LONG_PROJ, fl_x, fl_y)),
+        back_right=_Point(*transform(user_proj, LAT_LONG_PROJ, br_x, br_y)),
+        back_left=_Point(*transform(user_proj, LAT_LONG_PROJ, bl_x, bl_y)))
+
+
+def _write_output_file(photos, ground_height, output_file):
     env = Environment(loader=FileSystemLoader('.'))
     template = env.get_template('output_tmpl.kml')
-    t = template.render(footprints=footprints)
+    t = template.render(photos=photos, ground_height=ground_height)
     with open(output_file or 'output.kml', 'wb') as f:
         f.write(t)
-
-
-def _get_footprints(input_lines, ground_height, epsg_code):
-    footprints = []
-    for line in input_lines:
-        p = Photo(line, ground_height, epsg_code)
-        p.compute_corner_coordinates()
-        footprints.append(p)
-    return footprints
-
-
-def _get_input_lines(file_name):
-    with open(file_name) as fp:
-        return fp.readlines()

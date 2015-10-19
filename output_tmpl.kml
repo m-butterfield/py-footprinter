@@ -47,29 +47,19 @@
                 <styleUrl>#sh_ylw-pushpin</styleUrl>
             </Pair>
         </StyleMap>
-        {% for footprint in footprints %}
+        {% for photo in photos %}
         <Placemark>
-            <name>{{ footprint.photo_id }}</name>
-            <description>
-                x_value: {{ footprint.x_value }}
-                y_value: {{ footprint.y_value }}
-                z_value: {{ footprint.z_value }}
-                o_value: {{ footprint.o_value }}
-                p_value: {{ footprint.p_value }}
-                k_value: {{ footprint.k_value }}
-                Ground Height: {{ footprint.ground_height }}
-                CRS EPSG code: {{ footprint.epsg_code }}
-            </description>
+            <name>{{ photo.id }}</name>
             <styleUrl>#msn_ylw-pushpin0</styleUrl>
             <Polygon>
                 <tessellate>1</tessellate>
                 <outerBoundaryIs>
                     <LinearRing>
                         <coordinates>
-                            {{ footprint.corner_coordinates[0][0] }},{{ footprint.corner_coordinates[0][1] }},{{ footprint.ground_height }}
-                            {{ footprint.corner_coordinates[1][0] }},{{ footprint.corner_coordinates[1][1] }},{{ footprint.ground_height }}
-                            {{ footprint.corner_coordinates[3][0] }},{{ footprint.corner_coordinates[3][1] }},{{ footprint.ground_height }}
-                            {{ footprint.corner_coordinates[2][0] }},{{ footprint.corner_coordinates[2][1] }},{{ footprint.ground_height }}
+                            {{ photo.front_right.x }},{{ photo.front_right.y }},{{ ground_height }}
+                            {{ photo.front_left.x  }},{{ photo.front_left.y  }},{{ ground_height }}
+                            {{ photo.back_left.x   }},{{ photo.back_left.y   }},{{ ground_height }}
+                            {{ photo.back_right.x  }},{{ photo.back_right.y  }},{{ ground_height }}
                         </coordinates>
                     </LinearRing>
                 </outerBoundaryIs>
